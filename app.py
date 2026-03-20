@@ -193,5 +193,75 @@ def download_report(job_id):
         download_name='nmap_scan_report.csv'
     )
 
+import html as html_lib
+import re
+
+@app.route('/api/download_raw/<job_id>/<ip>/<port>', methods=['GET'])
+@login_required
+def download_raw(job_id, ip, port):
+    job = scan_jobs.get(job_id)
+    if not job:
+        return jsonify({'error': 'Job not found'}), 404
+        
+    for res in job['results']:
+        if res['ip'] == ip and res['port'] == port:
+            raw_output = res['raw_output']
+            findings = res['findings']
+            
+            # HTML escape the output to prevent injection and format
+            escaped_output = html_lib.escape(raw_output)
+            lines = escaped_output.split('\n')
+            
+            bad_keywords = ['TLSv1.0', 'TLSv1.1', 'Expired', 'untrusted', 'Self-signed']
+            
+            # Dynamically pull specific weak ciphers from the finding log
+            findings_ciphers = re.findall(r'TLS_[A-Z0-9_]+WITH[A-Z0-9_]+', findings)
+            bad_keywords.extend(findings_ciphers)
+            
+            highlighted_lines = []
+            for line in lines:
+                is_bad = False
+                for kw in bad_keywords:
+                    if kw in line:
+                        is_bad = True
+                        break
+                
+                if is_bad:
+                    highlighted_lines.append(f'<span style="color: #ff5555; font-weight: bold;">{line}</span>')
+                else:
+                    highlighted_lines.append(line)
+                    
+            final_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<title>NMAP Output - {ip}:{port}</title>
+<style>
+body {{ background-color: #0d1117; color: #c9d1d9; font-family: monospace; padding: 20px; }}
+pre {{ white-space: pre-wrap; word-wrap: break-word; line-height: 1.4; }}
+</style>
+</head>
+<body>
+<h2>NMAP Scan Result for {ip}:{port}</h2>
+<p style="color:#8b949e; font-size: 0.9em;">Command: {html_lib.escape(res['command'])}</p>
+<hr style="border:1px solid #30363d; margin-bottom:20px;">
+<pre>
+{chr(10).join(highlighted_lines)}
+</pre>
+</body>
+</html>"""
+            
+            output_io = io.BytesIO()
+            output_io.write(final_html.encode('utf-8'))
+            output_io.seek(0)
+            
+            return send_file(
+                output_io,
+                mimetype='text/html',
+                as_attachment=True,
+                download_name=f'nmap_output_{ip}_{port}.html'
+            )
+            
+    return jsonify({'error': 'Result not found for the specified Target'}), 404
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

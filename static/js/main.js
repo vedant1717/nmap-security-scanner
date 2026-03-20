@@ -188,9 +188,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const actionTd = document.createElement('td');
                 const viewBtn = document.createElement('button');
                 viewBtn.className = 'btn-sm';
-                viewBtn.textContent = 'View Output';
+                viewBtn.textContent = 'View Modal';
+                viewBtn.style.marginRight = '0.5rem';
                 viewBtn.onclick = () => openModal(key);
+                
+                const dlBtn = document.createElement('button');
+                dlBtn.className = 'btn-sm';
+                dlBtn.textContent = 'Download Output (.html)';
+                dlBtn.onclick = () => {
+                    window.location.href = `/api/download_raw/${currentJobId}/${res.ip}/${res.port}`;
+                };
+                
                 actionTd.appendChild(viewBtn);
+                actionTd.appendChild(dlBtn);
                 
                 tr.appendChild(targetTd);
                 tr.appendChild(serviceTd);
