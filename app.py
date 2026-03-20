@@ -121,7 +121,8 @@ def process_scans(job_id, targets):
             'port': port,
             'service': result['service'],
             'version': result['version'],
-            'findings': '; '.join(result['findings']) if result['findings'] else 'No issues found',
+            'findings': '\n'.join(result['findings']) if result['findings'] else 'No issues found',
+            'recommendation': result.get('recommendation', 'N/A'),
             'raw_output': result['raw_output'],
             'command': result['command']
         })
@@ -176,10 +177,10 @@ def download_report(job_id):
         
     si = io.StringIO()
     writer = csv.writer(si)
-    writer.writerow(['IP', 'Port', 'Service', 'Version', 'Findings'])
+    writer.writerow(['IP', 'Port', 'Service', 'Version', 'Findings', 'Recommendation'])
     
     for res in job['results']:
-        writer.writerow([res['ip'], res['port'], res['service'], res['version'], res['findings']])
+        writer.writerow([res['ip'], res['port'], res['service'], res['version'], res['findings'], res['recommendation']])
         
     output = io.BytesIO()
     output.write(si.getvalue().encode('utf-8'))

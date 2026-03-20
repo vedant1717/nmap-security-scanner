@@ -25,6 +25,32 @@ def get_cipher_security(cipher):
     CIPHER_CACHE[cipher] = 'unknown'
     return 'unknown'
 
+def generate_recommendations(findings, version="Unknown", secure_ciphers=None):
+    if not findings or findings == ['Port closed or host down']:
+        return "It is recommended to verify if the service is intended to be accessible."
+    
+    recs = []
+    findings_str = " ".join(findings).lower()
+    
+    if 'expired' in findings_str:
+        recs.append("renew the SSL certificate immediately")
+    if 'untrusted' in findings_str or 'self-signed' in findings_str:
+        recs.append("install a certificate from a trusted public Certificate Authority")
+    if 'tlsv1.0' in findings_str or 'tlsv1.1' in findings_str or 'outdated' in findings_str:
+        recs.append("disable outdated TLS 1.0/1.1 protocols and mandate TLS 1.2 or higher")
+    if 'weak' in findings_str or 'insecure' in findings_str or 'deprecated' in findings_str:
+        if secure_ciphers:
+            recs.append(f"disable the identified weak/insecure ciphers and configure the server to prioritize your secure suites such as {', '.join(secure_ciphers)}")
+        else:
+            recs.append("disable the identified weak/insecure ciphers and upgrade to standard securely recommended ciphers (e.g., TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256)")
+    
+    if version and version != 'Unknown' and version != 'N/A':
+        recs.append("obscure software version banners to prevent fingerprinting by attackers")
+        
+    if recs:
+        return "It is recommended to " + ", and to ".join(recs) + "."
+    return "It is recommended to maintain the current secure configuration."
+
 def scan_ip(ip, port, job=None):
     cmd = ["nmap", "-sV", "-Pn", "--script", "ssl-cert,ssl-enum-ciphers", "-p", str(port), ip]
     command_str = " ".join(cmd)
@@ -43,6 +69,7 @@ def scan_ip(ip, port, job=None):
                     'service': 'Aborted',
                     'version': 'N/A',
                     'findings': ['Scan aborted by user'],
+                    'recommendation': 'N/A',
                     'raw_output': 'Process deliberately killed mid-scan.',
                     'command': command_str
                 }
@@ -56,18 +83,21 @@ def scan_ip(ip, port, job=None):
                 'service': 'N/A',
                 'version': 'N/A',
                 'findings': ['Port closed or host down'],
+                'recommendation': 'It is recommended to verify if the service is accessible.',
                 'raw_output': output,
                 'command': command_str
             }
             
         # Parse NMAP output
-        service, version, findings = parse_output(output)
+        service, version, findings, secure_ciphers = parse_output(output)
+        recommendation = generate_recommendations(findings, version, secure_ciphers)
         
         # Format the output dict
         return {
             'service': service or 'Unknown',
             'version': version or 'Unknown',
             'findings': findings,
+            'recommendation': recommendation,
             'raw_output': output,
             'command': command_str
         }
@@ -77,6 +107,7 @@ def scan_ip(ip, port, job=None):
             'service': 'Error',
             'version': 'N/A',
             'findings': [f"Execution error: {str(e)}"],
+            'recommendation': 'N/A',
             'raw_output': '',
             'command': command_str
         }
@@ -97,7 +128,6 @@ def parse_output(output):
             # We matched something beyond the service name
             if not version_part.startswith('|') and not version_part.startswith('_'):
                 version = version_part
-                findings.append(f"Service version disclosed: {service} {version}")
 
     # 2. Extract Certificate Expiry and Issuer
     not_after_match = re.search(r'Not valid after:\s*([0-9T:-]+)', output)
@@ -137,6 +167,7 @@ def parse_output(output):
     # 4. Cipher evaluation via Ciphersuite.info API
     weak_ciphers = []
     insecure_ciphers = []
+    secure_ciphers = []
     
     # Extract all TLS ciphers
     cipher_matches = re.findall(r'(TLS_[A-Z0-9_]+WITH[A-Z0-9_]+)', output)
@@ -148,10 +179,12 @@ def parse_output(output):
             insecure_ciphers.append(cipher)
         elif security == 'weak':
             weak_ciphers.append(cipher)
+        elif security in ['secure', 'recommended']:
+            secure_ciphers.append(cipher)
             
     if weak_ciphers:
-        findings.append(f"WARNING: Weak ciphers detected ({len(weak_ciphers)} ciphers like {weak_ciphers[0]}) via Ciphersuite.info")
+        findings.append(f"WARNING: Weak ciphers detected via Ciphersuite.info: {', '.join(weak_ciphers)}")
     if insecure_ciphers:
-        findings.append(f"CRITICAL: Insecure/Deprecated ciphers detected ({len(insecure_ciphers)} ciphers like {insecure_ciphers[0]}) via Ciphersuite.info")
+        findings.append(f"CRITICAL: Insecure/Deprecated ciphers detected via Ciphersuite.info: {', '.join(insecure_ciphers)}")
         
-    return service, version, findings
+    return service, version, findings, secure_ciphers

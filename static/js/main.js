@@ -180,6 +180,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     findingsTd.innerHTML = parsed;
                 }
                 
+                // Recommendation
+                const recTd = document.createElement('td');
+                recTd.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; display: block;">${res.recommendation || ''}</span>`;
+                
                 // Action
                 const actionTd = document.createElement('td');
                 const viewBtn = document.createElement('button');
@@ -191,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.appendChild(targetTd);
                 tr.appendChild(serviceTd);
                 tr.appendChild(findingsTd);
+                tr.appendChild(recTd);
                 tr.appendChild(actionTd);
                 
                 resultsBody.appendChild(tr);
@@ -200,15 +205,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function parseFindings(findingsStr) {
         if (!findingsStr) return '';
-        const items = findingsStr.split('; ');
+        const items = findingsStr.split('\n');
         return items.map(item => {
             let className = 'badge-info';
             if (item.includes('CRITICAL') || item.includes('Expired')) className = 'badge-critical';
-            else if (item.includes('WARNING') || item.includes('Weak') || item.includes('untrusted')) className = 'badge-warning';
+            else if (item.includes('WARNING') || item.includes('Weak') || item.includes('untrusted') || item.includes('Self-signed')) className = 'badge-warning';
             
             // Clean up the text by removing our own prepended tags
             let cleanItem = item.replace(/CRITICAL: |WARNING: |INFO: /, '');
-            return `<span class="badge ${className}">${cleanItem}</span>`;
+            return `<div style="margin-bottom: 0.5rem;"><span class="badge ${className}" style="display:inline-block; text-align: left; white-space: normal; line-height: 1.4;">${cleanItem}</span></div>`;
         }).join('');
     }
 
