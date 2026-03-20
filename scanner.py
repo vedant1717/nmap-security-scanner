@@ -4,6 +4,7 @@ import time
 import requests
 import os
 import uuid
+import threading
 from datetime import datetime
 
 CIPHER_CACHE = {}
@@ -60,25 +61,32 @@ def scan_ip(ip, port, job=None):
     if not sanitized_port:
         sanitized_port = "1-65535"
         
-    live_file = f"uploads/live_{uuid.uuid4().hex}.txt"
-    cmd = ["nmap", "-sV", "-Pn", "--script", "ssl-cert,ssl-enum-ciphers", "-p", sanitized_port, "-oN", live_file, "--stats-every", "3s", ip]
+    cmd = ["nmap", "-sV", "-Pn", "--script", "ssl-cert,ssl-enum-ciphers", "-p", sanitized_port, "--stats-every", "3s", ip]
     command_str = " ".join(cmd)
-    
-    if job is not None:
-        job['live_file'] = live_file
     
     try:
         # Running nmap command with dynamic polling against job status
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         
+        output_buffer = []
         if job is not None:
             job['current_process'] = process
+            job['live_output'] = ''
+            
+        def reader():
+            for line in process.stdout:
+                output_buffer.append(line)
+                if job is not None:
+                    job['live_output'] += line
+                    
+        reader_thread = threading.Thread(target=reader)
+        reader_thread.daemon = True
+        reader_thread.start()
             
         while process.poll() is None:
             if job is not None:
                 if job.get('status') == 'aborted':
                     process.kill()
-                    if os.path.exists(live_file): os.remove(live_file)
                     return {
                         'service': 'Aborted',
                         'version': 'N/A',
@@ -90,7 +98,6 @@ def scan_ip(ip, port, job=None):
                 if job.get('skip_current'):
                     process.kill()
                     job['skip_current'] = False
-                    if os.path.exists(live_file): os.remove(live_file)
                     return {
                         'service': 'Skipped',
                         'version': 'N/A',
@@ -103,12 +110,11 @@ def scan_ip(ip, port, job=None):
                     process.kill()
                     job['restart_current'] = False
                     job['restarted'] = True
-                    if os.path.exists(live_file): os.remove(live_file)
                     return None
             time.sleep(0.5)
             
-        output, error = process.communicate()
-        if os.path.exists(live_file): os.remove(live_file)
+        reader_thread.join()
+        output = "".join(output_buffer)
         
         # Check if host is down or port is filtered/closed
         if "Host seems down" in output or f"{port}/tcp closed" in output or f"{port}/tcp filtered" in output:
@@ -136,7 +142,6 @@ def scan_ip(ip, port, job=None):
         }
             
     except Exception as e:
-        if os.path.exists(live_file): os.remove(live_file)
         return {
             'service': 'Error',
             'version': 'N/A',
@@ -224,8 +229,7 @@ def parse_output(output):
     return service, version, findings, secure_ciphers
 
 def scan_all_ports(ip, job=None):
-    live_file = f"uploads/live_{uuid.uuid4().hex}.txt"
-    cmd = ["nmap", "-Pn", "--open", "-oN", live_file, "--stats-every", "3s"]
+    cmd = ["nmap", "-Pn", "--open", "--stats-every", "3s"]
     
     port_arg = "-p-"
     if job and job.get('ports'):
@@ -242,19 +246,28 @@ def scan_all_ports(ip, job=None):
         
     cmd.append(ip)
     command_str = " ".join(cmd)
-    
-    if job is not None:
-        job['live_file'] = live_file
         
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        
+        output_buffer = []
         if job is not None:
             job['current_process'] = process
+            job['live_output'] = ''
+            
+        def reader():
+            for line in process.stdout:
+                output_buffer.append(line)
+                if job is not None:
+                    job['live_output'] += line
+                    
+        reader_thread = threading.Thread(target=reader)
+        reader_thread.daemon = True
+        reader_thread.start()
             
         while process.poll() is None:
             if job is not None and job.get('status') == 'aborted':
                 process.kill()
-                if os.path.exists(live_file): os.remove(live_file)
                 return {
                     'open_ports': 'Scan aborted by user',
                     'raw_output': 'Process deliberately killed mid-scan.',
@@ -263,7 +276,6 @@ def scan_all_ports(ip, job=None):
             if job is not None and job.get('skip_current'):
                 process.kill()
                 job['skip_current'] = False
-                if os.path.exists(live_file): os.remove(live_file)
                 return {
                     'open_ports': 'Skipped',
                     'raw_output': 'Scan skipped.',
@@ -273,12 +285,11 @@ def scan_all_ports(ip, job=None):
                 process.kill()
                 job['restart_current'] = False
                 job['restarted'] = True
-                if os.path.exists(live_file): os.remove(live_file)
                 return None
             time.sleep(0.5)
             
-        output, error = process.communicate()
-        if os.path.exists(live_file): os.remove(live_file)
+        reader_thread.join()
+        output = "".join(output_buffer)
         
         if "Host seems down" in output:
             return {
@@ -302,7 +313,6 @@ def scan_all_ports(ip, job=None):
             'command': command_str
         }
     except Exception as e:
-        if os.path.exists(live_file): os.remove(live_file)
         return {
             'open_ports': f"Error: {str(e)}",
             'raw_output': '',
@@ -310,22 +320,30 @@ def scan_all_ports(ip, job=None):
         }
 
 def scan_ip_accessibility(ip, job=None):
-    live_file = f"uploads/live_{uuid.uuid4().hex}.txt"
-    cmd = ["nmap", "-sn", "-n", "-oN", live_file, "--stats-every", "3s", ip]
+    cmd = ["nmap", "-sn", "-n", "--stats-every", "3s", ip]
     command_str = " ".join(cmd)
-    
-    if job is not None:
-        job['live_file'] = live_file
         
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        
+        output_buffer = []
         if job is not None:
             job['current_process'] = process
+            job['live_output'] = ''
+            
+        def reader():
+            for line in process.stdout:
+                output_buffer.append(line)
+                if job is not None:
+                    job['live_output'] += line
+                    
+        reader_thread = threading.Thread(target=reader)
+        reader_thread.daemon = True
+        reader_thread.start()
             
         while process.poll() is None:
             if job is not None and job.get('status') == 'aborted':
                 process.kill()
-                if os.path.exists(live_file): os.remove(live_file)
                 return {
                     'accessibility': 'Scan aborted by user',
                     'raw_output': 'Process deliberately killed mid-scan.',
@@ -334,7 +352,6 @@ def scan_ip_accessibility(ip, job=None):
             if job is not None and job.get('skip_current'):
                 process.kill()
                 job['skip_current'] = False
-                if os.path.exists(live_file): os.remove(live_file)
                 return {
                     'accessibility': 'Skipped',
                     'raw_output': 'Scan skipped.',
@@ -344,12 +361,11 @@ def scan_ip_accessibility(ip, job=None):
                 process.kill()
                 job['restart_current'] = False
                 job['restarted'] = True
-                if os.path.exists(live_file): os.remove(live_file)
                 return None
             time.sleep(0.5)
             
-        output, error = process.communicate()
-        if os.path.exists(live_file): os.remove(live_file)
+        reader_thread.join()
+        output = "".join(output_buffer)
         
         if "Host is up" in output:
             accessibility = "Accessible"
@@ -364,7 +380,6 @@ def scan_ip_accessibility(ip, job=None):
             'command': command_str
         }
     except Exception as e:
-        if os.path.exists(live_file): os.remove(live_file)
         return {
             'accessibility': f"Error: {str(e)}",
             'raw_output': '',

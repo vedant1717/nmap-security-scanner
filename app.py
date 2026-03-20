@@ -400,16 +400,7 @@ def get_live_output(job_id):
     if not job:
         return jsonify({'output': 'Job not found.'})
         
-    live_file = job.get('live_file')
-    if not live_file or not os.path.exists(live_file):
-        return jsonify({'output': 'Waiting for NMAP to initialize (Execution allocating)...'})
-        
-    try:
-        with open(live_file, 'r') as f:
-            content = f.read()
-        return jsonify({'output': content})
-    except Exception as e:
-        return jsonify({'output': f'Error reading live output: {str(e)}'})
+    return jsonify({'output': job.get('live_output', 'Waiting for NMAP to initialize (Execution allocating)...')})
 
 @app.route('/api/download/<job_id>', methods=['GET'])
 @login_required
@@ -505,11 +496,19 @@ def download_raw(job_id, ip, port):
             escaped_output = html_lib.escape(raw_output)
             lines = escaped_output.split('\n')
             
-            bad_keywords = ['TLSv1.0', 'TLSv1.1', 'Expired', 'untrusted', 'Self-signed']
+            bad_keywords = ['TLSv1.0', 'TLSv1.1']
+            if 'Expired' in findings:
+                bad_keywords.append('Not valid after:')
+            if 'Self-signed' in findings or 'non-trusted' in findings:
+                bad_keywords.extend(['Issuer:', 'Subject:'])
             
             # Dynamically pull specific weak ciphers from the finding log
             findings_ciphers = re.findall(r'TLS_[A-Z0-9_]+WITH[A-Z0-9_]+', findings)
             bad_keywords.extend(findings_ciphers)
+            
+            target_version = res.get('version', '')
+            # Enforce that versions must contain numbers to warrant explicit Red Highlighting
+            has_digit = bool(re.search(r'\d', target_version)) if target_version else False
             
             highlighted_lines = []
             for line in lines:
@@ -518,6 +517,11 @@ def download_raw(job_id, ip, port):
                     if kw in line:
                         is_bad = True
                         break
+                        
+                # Version Disclosure Strict Regex Matching
+                if not is_bad and target_version and target_version not in ['Unknown', 'N/A'] and has_digit:
+                    if target_version in line and re.match(r'^\d+/(tcp|udp)\s+open', line):
+                        is_bad = True
                 
                 if is_bad:
                     highlighted_lines.append(f'<span style="color: #ff5555; font-weight: bold;">{line}</span>')
