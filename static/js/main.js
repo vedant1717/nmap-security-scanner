@@ -15,6 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsBody = document.getElementById('results-body');
     const downloadBtn = document.getElementById('download-btn');
     
+    const pauseBtn = document.getElementById('pause-btn');
+    const resumeBtn = document.getElementById('resume-btn');
+    const abortBtn = document.getElementById('abort-btn');
+    const scanActions = document.getElementById('scan-actions');
+    
     // Modal Elements
     const rawModal = document.getElementById('raw-modal');
     const closeModal = document.getElementById('close-modal');
@@ -67,6 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hide upload, show progress
         uploadSection.classList.add('hidden');
         progressSection.classList.remove('hidden');
+        scanActions.classList.remove('hidden');
+        pauseBtn.classList.remove('hidden');
+        resumeBtn.classList.add('hidden');
         
         fetch('/api/upload', {
             method: 'POST',
@@ -124,13 +132,22 @@ document.addEventListener('DOMContentLoaded', () => {
         scanCount.textContent = `${completed} / ${total}`;
         progressBar.style.width = `${total > 0 ? (completed / total) * 100 : 0}%`;
         
-        if (status === 'completed') {
+        if (status === 'completed' || status === 'aborted') {
             clearInterval(pollInterval);
-            scanStatusText.textContent = "Scan Completed!";
+            scanStatusText.textContent = status === 'completed' ? "Scan Completed!" : "Scan Aborted.";
+            scanActions.classList.add('hidden');
             downloadBtn.classList.remove('hidden');
             downloadBtn.onclick = () => {
                 window.location.href = `/api/download/${currentJobId}`;
             };
+        } else if (status === 'paused') {
+            scanStatusText.textContent = "Scan Paused";
+            pauseBtn.classList.add('hidden');
+            resumeBtn.classList.remove('hidden');
+        } else {
+            scanStatusText.textContent = "Scanning...";
+            pauseBtn.classList.remove('hidden');
+            resumeBtn.classList.add('hidden');
         }
         
         // Render new results
@@ -208,4 +225,36 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onclick = (e) => {
         if (e.target === rawModal) rawModal.classList.add('hidden');
     }
+
+    // Action Logic
+    function sendAction(action) {
+        if (!currentJobId) return;
+        fetch(`/api/action/${currentJobId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action })
+        }).catch(err => console.error(err));
+    }
+
+    pauseBtn.onclick = () => {
+        sendAction('pause');
+        pauseBtn.classList.add('hidden');
+        resumeBtn.classList.remove('hidden');
+        scanStatusText.textContent = "Pausing...";
+    };
+
+    resumeBtn.onclick = () => {
+        sendAction('resume');
+        resumeBtn.classList.add('hidden');
+        pauseBtn.classList.remove('hidden');
+        scanStatusText.textContent = "Resuming...";
+    };
+
+    abortBtn.onclick = () => {
+        if (confirm("Are you sure you want to abort the scan?")) {
+            sendAction('abort');
+            scanActions.classList.add('hidden');
+            scanStatusText.textContent = "Aborting...";
+        }
+    };
 });

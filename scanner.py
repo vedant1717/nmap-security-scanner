@@ -1,16 +1,32 @@
 import subprocess
 import re
+import time
 from datetime import datetime
 
-def scan_ip(ip, port):
-    cmd = ["nmap", "-sV", "--script", "ssl-cert,ssl-enum-ciphers", "-p", str(port), ip]
+def scan_ip(ip, port, job=None):
+    cmd = ["nmap", "-sV", "-Pn", "--script", "ssl-cert,ssl-enum-ciphers", "-p", str(port), ip]
     command_str = " ".join(cmd)
     
     try:
-        # Running nmap command
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-        output = result.stdout
-        error = result.stderr
+        # Running nmap command with dynamic polling against job status
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        
+        if job is not None:
+            job['current_process'] = process
+            
+        while process.poll() is None:
+            if job is not None and job.get('status') == 'aborted':
+                process.kill()
+                return {
+                    'service': 'Aborted',
+                    'version': 'N/A',
+                    'findings': ['Scan aborted by user'],
+                    'raw_output': 'Process deliberately killed mid-scan.',
+                    'command': command_str
+                }
+            time.sleep(0.5)
+            
+        output, error = process.communicate()
         
         # Check if host is down or port is filtered/closed
         if "Host seems down" in output or f"{port}/tcp closed" in output or f"{port}/tcp filtered" in output:
@@ -34,14 +50,6 @@ def scan_ip(ip, port):
             'command': command_str
         }
             
-    except subprocess.TimeoutExpired:
-        return {
-            'service': 'Timeout',
-            'version': 'N/A',
-            'findings': ['Scan timed out after 180 seconds'],
-            'raw_output': 'Process timed out.',
-            'command': command_str
-        }
     except Exception as e:
         return {
             'service': 'Error',

@@ -99,13 +99,22 @@ def upload_csv():
     return jsonify({'error': 'Invalid file format. Please upload a CSV file.'}), 400
 
 def process_scans(job_id, targets):
+    import time
     job = scan_jobs[job_id]
     for target in targets:
+        # Check for pause
+        while job['status'] == 'paused':
+            time.sleep(1)
+            
+        # Check for abort
+        if job['status'] == 'aborted':
+            break
+            
         ip = target['ip']
         port = target['port']
         
         # Run scan
-        result = scan_ip(ip, port)
+        result = scan_ip(ip, port, job=job)
         
         job['results'].append({
             'ip': ip,
@@ -118,7 +127,8 @@ def process_scans(job_id, targets):
         })
         job['completed'] += 1
         
-    job['status'] = 'completed'
+    if job['status'] != 'aborted':
+        job['status'] = 'completed'
 
 @app.route('/api/status/<job_id>', methods=['GET'])
 @login_required
@@ -133,6 +143,29 @@ def get_status(job_id):
         'completed': job['completed'],
         'results': job['results']
     })
+
+@app.route('/api/action/<job_id>', methods=['POST'])
+@login_required
+def job_action(job_id):
+    job = scan_jobs.get(job_id)
+    if not job:
+        return jsonify({'error': 'Job not found'}), 404
+        
+    action = request.json.get('action')
+    if action not in ['pause', 'resume', 'abort']:
+        return jsonify({'error': 'Invalid action parameter'}), 400
+        
+    if job['status'] in ['completed', 'aborted']:
+        return jsonify({'error': 'Job already finished or aborted'}), 400
+        
+    if action == 'pause':
+        job['status'] = 'paused'
+    elif action == 'resume':
+        job['status'] = 'running'
+    elif action == 'abort':
+        job['status'] = 'aborted'
+        
+    return jsonify({'message': f'Job {action}d successfully'})
 
 @app.route('/api/download/<job_id>', methods=['GET'])
 @login_required
