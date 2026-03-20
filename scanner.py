@@ -1,7 +1,29 @@
 import subprocess
 import re
 import time
+import requests
 from datetime import datetime
+
+CIPHER_CACHE = {}
+
+def get_cipher_security(cipher):
+    if cipher in CIPHER_CACHE:
+        return CIPHER_CACHE[cipher]
+        
+    try:
+        url = f"https://ciphersuite.info/api/cs/{cipher}/"
+        resp = requests.get(url, timeout=3)
+        if resp.status_code == 200:
+            data = resp.json()
+            if cipher in data:
+                security = data[cipher].get('security', 'unknown')
+                CIPHER_CACHE[cipher] = security
+                return security
+    except Exception:
+        pass
+        
+    CIPHER_CACHE[cipher] = 'unknown'
+    return 'unknown'
 
 def scan_ip(ip, port, job=None):
     cmd = ["nmap", "-sV", "-Pn", "--script", "ssl-cert,ssl-enum-ciphers", "-p", str(port), ip]
@@ -112,27 +134,24 @@ def parse_output(output):
     if "TLSv1.1:" in output:
         findings.append("CRITICAL: TLSv1.1 is enabled (Outdated/Insecure)")
         
-    # 4. Cipher evaluation (TLS 1.2 and 1.3)
-    # Looking for lines like `TLS_RSA_WITH_AES_128_CBC_SHA (rsa 2048) - C`
-    # or `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (secp256r1) - A`
+    # 4. Cipher evaluation via Ciphersuite.info API
     weak_ciphers = []
-    deprecated_ciphers = []
+    insecure_ciphers = []
     
-    cipher_lines = re.findall(r'(\w+WITH\w+)\s+\([^\)]+\)\s+-\s+([A-F])', output)
+    # Extract all TLS ciphers
+    cipher_matches = re.findall(r'(TLS_[A-Z0-9_]+WITH[A-Z0-9_]+)', output)
+    unique_ciphers = list(set(cipher_matches))
     
-    for cipher, grade in cipher_lines:
-        if grade in ['F']:
-            deprecated_ciphers.append(cipher)
-        elif grade in ['C', 'D', 'E']:
+    for cipher in unique_ciphers:
+        security = get_cipher_security(cipher)
+        if security == 'insecure':
+            insecure_ciphers.append(cipher)
+        elif security == 'weak':
             weak_ciphers.append(cipher)
             
-    # Deduplicate
-    weak_ciphers = list(set(weak_ciphers))
-    deprecated_ciphers = list(set(deprecated_ciphers))
-    
     if weak_ciphers:
-        findings.append(f"WARNING: Weak ciphers detected ({len(weak_ciphers)} ciphers like {weak_ciphers[0]})")
-    if deprecated_ciphers:
-        findings.append(f"CRITICAL: Deprecated ciphers detected ({len(deprecated_ciphers)} ciphers like {deprecated_ciphers[0]})")
+        findings.append(f"WARNING: Weak ciphers detected ({len(weak_ciphers)} ciphers like {weak_ciphers[0]}) via Ciphersuite.info")
+    if insecure_ciphers:
+        findings.append(f"CRITICAL: Insecure/Deprecated ciphers detected ({len(insecure_ciphers)} ciphers like {insecure_ciphers[0]}) via Ciphersuite.info")
         
     return service, version, findings
