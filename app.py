@@ -393,6 +393,24 @@ def troubleshoot(job_id):
         'likely_reason': reason
     })
 
+@app.route('/api/live/<job_id>', methods=['GET'])
+@login_required
+def get_live_output(job_id):
+    job = scan_jobs.get(job_id)
+    if not job:
+        return jsonify({'output': 'Job not found.'})
+        
+    live_file = job.get('live_file')
+    if not live_file or not os.path.exists(live_file):
+        return jsonify({'output': 'Waiting for NMAP to initialize (Execution allocating)...'})
+        
+    try:
+        with open(live_file, 'r') as f:
+            content = f.read()
+        return jsonify({'output': content})
+    except Exception as e:
+        return jsonify({'output': f'Error reading live output: {str(e)}'})
+
 @app.route('/api/download/<job_id>', methods=['GET'])
 @login_required
 def download_report(job_id):

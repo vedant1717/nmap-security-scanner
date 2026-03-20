@@ -58,6 +58,8 @@
                 <div class="action-buttons flex-between" id="scan-actions" style="justify-content: flex-start; gap: 1rem;">
                     <button class="btn btn-sm" id="pause-btn" style="background: rgba(210, 153, 34, 0.2); border-color: rgba(210, 153, 34, 0.5);">Pause Scan</button>
                     <button class="btn btn-sm hidden" id="resume-btn" style="background: rgba(46, 160, 67, 0.2); border-color: rgba(46, 160, 67, 0.5);">Resume Scan</button>
+                    <button class="btn btn-sm" id="skip-btn" style="background: rgba(136, 146, 176, 0.2); border-color: rgba(136, 146, 176, 0.5);">Skip Active IP</button>
+                    <button class="btn btn-sm" id="live-btn" style="background: rgba(136, 146, 176, 0.2); border-color: rgba(136, 146, 176, 0.5);">Live CLI View</button>
                     <button class="btn btn-sm" id="troubleshoot-btn" style="background: rgba(88, 166, 255, 0.2); border-color: rgba(88, 166, 255, 0.5);">Troubleshoot Scan</button>
                     <button class="btn btn-sm" id="abort-btn" style="background: rgba(248, 81, 73, 0.2); border-color: rgba(248, 81, 73, 0.5);">Abort Scan</button>
                 </div>
@@ -122,6 +124,17 @@
             <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
                 <button class="btn btn-primary" id="ts-restart-btn">Force Restart Current IP</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Live CLI Modal -->
+    <div class="modal hidden" id="live-modal">
+        <div class="modal-content glass-panel" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <h3>Live NMAP Console</h3>
+                <button class="close-btn" id="close-live-modal">&times;</button>
+            </div>
+            <pre class="terminal" id="live-output" style="height: 400px; overflow-y: auto; background: #000; color: #0f0; margin-top: 1rem; padding: 1rem; white-space: pre-wrap; font-size: 0.9rem;">Waiting for output...</pre>
         </div>
     </div>
 

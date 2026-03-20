@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resumeBtn = document.getElementById('resume-btn');
     const abortBtn = document.getElementById('abort-btn');
     const skipBtn = document.getElementById('skip-btn');
+    const liveBtn = document.getElementById('live-btn');
     const troubleshootBtn = document.getElementById('troubleshoot-btn');
     const scanActions = document.getElementById('scan-actions');
     
@@ -36,6 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const tsDiagnostic = document.getElementById('ts-diagnostic');
     const tsRestartBtn = document.getElementById('ts-restart-btn');
     let tsInterval = null;
+
+    // Live CLI Elements
+    const liveModal = document.getElementById('live-modal');
+    const closeLiveModal = document.getElementById('close-live-modal');
+    const liveOutput = document.getElementById('live-output');
+    let liveInterval = null;
 
     let currentJobId = null;
     let pollInterval = null;
@@ -151,19 +158,23 @@ document.addEventListener('DOMContentLoaded', () => {
             downloadBtn.onclick = () => {
                 window.location.href = `/api/download/${currentJobId}`;
             };
+            if(skipBtn) skipBtn.classList.add('hidden');
             if(troubleshootBtn) troubleshootBtn.classList.add('hidden');
+            if(liveBtn) liveBtn.classList.add('hidden');
         } else if (status === 'paused') {
             scanStatusText.textContent = "Scan Paused";
             pauseBtn.classList.add('hidden');
             resumeBtn.classList.remove('hidden');
             if(skipBtn) skipBtn.classList.add('hidden');
             if(troubleshootBtn) troubleshootBtn.classList.add('hidden');
+            if(liveBtn) liveBtn.classList.add('hidden');
         } else {
             scanStatusText.textContent = "Scanning...";
             pauseBtn.classList.remove('hidden');
             resumeBtn.classList.add('hidden');
             if(skipBtn) skipBtn.classList.remove('hidden');
             if(troubleshootBtn) troubleshootBtn.classList.remove('hidden');
+            if(liveBtn) liveBtn.classList.remove('hidden');
         }
         
         // Render new results
@@ -267,6 +278,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 tsModal.classList.add('hidden');
                 if (tsInterval) clearInterval(tsInterval);
             }
+            if (e.target === liveModal) {
+                liveModal.classList.add('hidden');
+                if (liveInterval) clearInterval(liveInterval);
+            }
         }
         
     if (troubleshootBtn) {
@@ -315,6 +330,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     tsTarget.textContent = data.message || data.status;
                 }
+            })
+            .catch(err => console.error(err));
+    }
+
+    if (liveBtn) {
+        liveBtn.onclick = () => {
+            liveModal.classList.remove('hidden');
+            pollLive();
+            liveInterval = setInterval(pollLive, 1000);
+        };
+    }
+
+    if (closeLiveModal) {
+        closeLiveModal.onclick = () => {
+            liveModal.classList.add('hidden');
+            if (liveInterval) clearInterval(liveInterval);
+        };
+    }
+
+    function pollLive() {
+        if (!currentJobId) return;
+        fetch(`/api/live/${currentJobId}`)
+            .then(res => res.json())
+            .then(data => {
+                liveOutput.textContent = data.output;
+                liveOutput.scrollTop = liveOutput.scrollHeight;
             })
             .catch(err => console.error(err));
     }
