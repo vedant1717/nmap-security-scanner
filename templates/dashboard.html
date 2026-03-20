@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - NMAP Security Scanner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 250px;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            background: rgba(88, 166, 255, 0.05);
+            border-color: rgba(88, 166, 255, 0.4);
+            box-shadow: 0 8px 32px rgba(88, 166, 255, 0.1);
+        }
+        .card h2 { margin-bottom: 1rem; color: var(--accent-blue); font-size: 1.8rem; }
+        .card p { font-size: 1rem; line-height: 1.5; color: var(--text-secondary); }
+        
+        @media (max-width: 992px) {
+            .grid-3 { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            .grid-3 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-bg"></div>
+    <div class="container">
+        <header class="glass-panel text-center" style="position: relative;">
+            <a href="{{ url_for('logout') }}" class="btn btn-sm" style="position: absolute; right: 20px; top: 20px; text-decoration: none;">Logout</a>
+            <h1>NMAP Security Scanner</h1>
+            <p>Select a scanning module to proceed</p>
+        </header>
+
+        <main class="grid-3">
+            <a href="{{ url_for('ip_scan_page') }}" class="card glass-panel">
+                <h2>IP Accessibility Scan</h2>
+                <p>Execute rapid Ping-sweeps (-sn) across mass target lists. Skip resolution and immediately identify if hosts are Accessible or Not Accessible.</p>
+            </a>
+            
+            <a href="{{ url_for('port_scan_page') }}" class="card glass-panel">
+                <h2>Open Ports Scan</h2>
+                <p>Perform an intensive all-ports (-p-) scan on multiple IPs. Natively ignores ping probes and skips closed/filtered ports for extreme speed.</p>
+            </a>
+            
+            <a href="{{ url_for('service_scan_page') }}" class="card glass-panel">
+                <h2>Service & SSL Scan</h2>
+                <p>Perform advanced SSL/TLS analysis against specific IPs and Ports. Validates ciphers against Ciphersuite.info, monitors certificate expiry, and parses exact software versions.</p>
+            </a>
+        </main>
+    </div>
+    
+    <footer class="text-center" style="margin-top: 2rem; padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">
+        &copy; Copyright at Vedant Patil
+    </footer>
+</body>
+</html>

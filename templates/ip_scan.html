@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NMAP SSL Security Scanner</title>
-    <!-- Use Google Fonts -->
+    <title>IP Accessibility Scan - NMAP Security Scanner</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
@@ -26,8 +25,8 @@
         <header class="glass-panel text-center" style="position: relative;">
             <a href="{{ url_for('dashboard') }}" class="back-btn">&larr; Back to Dashboard</a>
             <a href="{{ url_for('logout') }}" class="btn btn-sm" style="position: absolute; right: 20px; top: 20px; text-decoration: none;">Logout</a>
-            <h1>Service & SSL Scanner</h1>
-            <p>Advanced Vulnerability Enumeration Mode</p>
+            <h1>IP Accessibility Scanner</h1>
+            <p>Rapid Ping Sweep Host Discovery (-sn)</p>
         </header>
 
         <main>
@@ -38,7 +37,7 @@
                     <div class="upload-content">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                         <p>Drag and drop your CSV file here</p>
-                        <p class="text-sm">Requirements: Must contain 'IP' and 'Port' columns</p>
+                        <p class="text-sm">Requirements: Must contain an 'IP' column</p>
                         <input type="file" id="file-input" accept=".csv" class="hidden">
                         <button class="btn btn-primary" id="browse-btn">Browse Files</button>
                     </div>
@@ -59,7 +58,6 @@
                 <div class="action-buttons flex-between" id="scan-actions" style="justify-content: flex-start; gap: 1rem;">
                     <button class="btn btn-sm" id="pause-btn" style="background: rgba(210, 153, 34, 0.2); border-color: rgba(210, 153, 34, 0.5);">Pause Scan</button>
                     <button class="btn btn-sm hidden" id="resume-btn" style="background: rgba(46, 160, 67, 0.2); border-color: rgba(46, 160, 67, 0.5);">Resume Scan</button>
-                    <button class="btn btn-sm" id="skip-btn" style="background: rgba(136, 146, 176, 0.2); border-color: rgba(136, 146, 176, 0.5);">Skip Active IP</button>
                     <button class="btn btn-sm" id="troubleshoot-btn" style="background: rgba(88, 166, 255, 0.2); border-color: rgba(88, 166, 255, 0.5);">Troubleshoot Scan</button>
                     <button class="btn btn-sm" id="abort-btn" style="background: rgba(248, 81, 73, 0.2); border-color: rgba(248, 81, 73, 0.5);">Abort Scan</button>
                 </div>
@@ -75,10 +73,8 @@
                     <table id="results-table">
                         <thead>
                             <tr>
-                                <th>Target</th>
-                                <th>Service & Version</th>
-                                <th>Findings</th>
-                                <th>Recommendation</th>
+                                <th>IP Address</th>
+                                <th>Accessibility</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -129,6 +125,6 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main_ip.js') }}"></script>
 </body>
 </html>

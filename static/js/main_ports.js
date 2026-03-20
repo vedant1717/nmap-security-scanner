@@ -18,16 +18,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const pauseBtn = document.getElementById('pause-btn');
     const resumeBtn = document.getElementById('resume-btn');
     const abortBtn = document.getElementById('abort-btn');
-    const skipBtn = document.getElementById('skip-btn');
     const troubleshootBtn = document.getElementById('troubleshoot-btn');
     const scanActions = document.getElementById('scan-actions');
+    
+    const timingButtons = document.querySelectorAll('.timing-btn');
+    const timingDesc = document.getElementById('timing-desc');
+    let selectedTiming = 'None';
+    
+    const descriptions = {
+        'None': 'No explicit timing flags applied. Standard reliable NMAP execution.',
+        'T1': 'Sneaky (Slowest): Useful for IDS evasion. Leaves 15 seconds between active probes.',
+        'T2': 'Polite (Slow): Reduces bandwidth. Leaves 0.4 seconds between active probes.',
+        'T3': 'Normal (Default): Default operating speed dynamically adjusting to network latency.',
+        'T4': 'Aggressive (Fast): Accelerates execution by bypassing slow ping evaluations. Assumes a highly reliable, fast network.',
+        'T5': 'Insane (Extremely Fast): Sacrifices active accuracy for extreme speeds. May drop accurate port readings on lagging networks.'
+    };
+
+    if (timingButtons.length > 0) {
+        timingButtons.forEach(btn => {
+            btn.onclick = () => {
+                timingButtons.forEach(b => {
+                    b.style.background = '';
+                    b.style.borderColor = '';
+                    b.classList.remove('active');
+                });
+                btn.classList.add('active');
+                btn.style.background = 'rgba(88, 166, 255, 0.2)';
+                btn.style.borderColor = 'rgba(88, 166, 255, 0.5)';
+                selectedTiming = btn.dataset.timing;
+                timingDesc.textContent = descriptions[selectedTiming];
+            };
+        });
+    }
     
     // Modal Elements
     const rawModal = document.getElementById('raw-modal');
     const closeModal = document.getElementById('close-modal');
     const modalCommand = document.getElementById('modal-command');
     const modalOutput = document.getElementById('modal-output');
-    
+
     // Troubleshoot Elements
     const tsModal = document.getElementById('ts-modal');
     const closeTsModal = document.getElementById('close-ts-modal');
@@ -77,8 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const customPorts = document.getElementById('custom-ports').value.trim();
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('timing', selectedTiming);
+        formData.append('ports', customPorts);
         
         // Hide upload, show progress
         uploadSection.classList.add('hidden');
@@ -87,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pauseBtn.classList.remove('hidden');
         resumeBtn.classList.add('hidden');
         
-        fetch('/api/upload', {
+        fetch('/api/upload_ports', {
             method: 'POST',
             body: formData
         })
@@ -149,64 +181,46 @@ document.addEventListener('DOMContentLoaded', () => {
             scanActions.classList.add('hidden');
             downloadBtn.classList.remove('hidden');
             downloadBtn.onclick = () => {
-                window.location.href = `/api/download/${currentJobId}`;
+                window.location.href = `/api/download_ports/${currentJobId}`;
             };
             if(troubleshootBtn) troubleshootBtn.classList.add('hidden');
         } else if (status === 'paused') {
             scanStatusText.textContent = "Scan Paused";
             pauseBtn.classList.add('hidden');
             resumeBtn.classList.remove('hidden');
-            if(skipBtn) skipBtn.classList.add('hidden');
             if(troubleshootBtn) troubleshootBtn.classList.add('hidden');
         } else {
             scanStatusText.textContent = "Scanning...";
             pauseBtn.classList.remove('hidden');
             resumeBtn.classList.add('hidden');
-            if(skipBtn) skipBtn.classList.remove('hidden');
             if(troubleshootBtn) troubleshootBtn.classList.remove('hidden');
         }
         
         // Render new results
-        // Using a basic diff render: only append new rows
         const currentRowsCount = resultsBody.children.length;
         if (results.length > currentRowsCount) {
             for (let i = currentRowsCount; i < results.length; i++) {
                 const res = results[i];
-                const key = `${res.ip}:${res.port}`;
+                const key = `${res.ip}`;
                 scanDataStore[key] = res; // Save for modal
                 
                 const tr = document.createElement('tr');
                 
-                // IP & Port
+                // IP
                 const targetTd = document.createElement('td');
-                targetTd.innerHTML = `<div><strong>${res.ip}</strong></div><div class="text-sm">Port: ${res.port}</div>`;
+                targetTd.innerHTML = `<strong>${res.ip}</strong>`;
                 
-                // Service & Version
-                const serviceTd = document.createElement('td');
-                if (res.service === 'Error' || res.service === 'Aborted') {
-                    serviceTd.innerHTML = `<span class="badge badge-critical">${res.service}</span>`;
-                } else if (res.service === 'Skipped') {
-                    serviceTd.innerHTML = `<span class="badge badge-warning" style="background: rgba(136,146,176,0.2); border-color: rgba(136,146,176,0.5);">Skipped</span>`;
-                } else if (res.service === 'N/A') {
-                    serviceTd.innerHTML = `<span class="badge badge-warning">N/A</span>`;
+                // Ports
+                const portsTd = document.createElement('td');
+                if(res.open_ports.includes('Error') || res.open_ports.includes('aborted') || res.open_ports.includes('down')) {
+                    portsTd.innerHTML = `<span class="badge badge-warning">${res.open_ports}</span>`;
+                } else if(res.open_ports.includes('No open ports')) {
+                    portsTd.innerHTML = `<span class="badge badge-info">No open ports</span>`;
                 } else {
-                    serviceTd.textContent = `${res.service} ${res.version !== 'Unknown' ? res.version : ''}`;
+                    // Split ports by comma and wrap in nice badges
+                    const pList = res.open_ports.split(',').map(p => `<span class="badge badge-info" style="background: rgba(88,166,255,0.1); border-color: var(--accent-blue);">${p.trim()}</span>`).join(' ');
+                    portsTd.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:5px;">${pList}</div>`;
                 }
-                
-                // Findings
-                const findingsTd = document.createElement('td');
-                if (res.findings === 'No issues found') {
-                    findingsTd.innerHTML = `<span class="badge badge-info">Clean</span>`;
-                } else if (res.findings.includes('timed out') || res.findings.includes('closed') || res.findings.includes('error') || res.findings.includes('down')) {
-                    findingsTd.innerHTML = `<span class="badge badge-warning">${res.findings}</span>`;
-                } else {
-                    const parsed = parseFindings(res.findings);
-                    findingsTd.innerHTML = parsed;
-                }
-                
-                // Recommendation
-                const recTd = document.createElement('td');
-                recTd.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; display: block;">${res.recommendation || ''}</span>`;
                 
                 // Action
                 const actionTd = document.createElement('td');
@@ -220,35 +234,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 dlBtn.className = 'btn-sm';
                 dlBtn.textContent = 'Download Output (.html)';
                 dlBtn.onclick = () => {
-                    window.location.href = `/api/download_raw/${currentJobId}/${res.ip}/${res.port}`;
+                    // We can reuse the same download_raw endpoint but supply a dummy port 'all' since we index it by ip in this job!
+                    // Wait, our backend download_raw checks `if res['ip'] == ip and res['port'] == port:`
+                    // Port scanning doesn't have `res['port']` strictly in the JSON object returned by api/status.
+                    // So we must fix download_raw logic or just direct to a new /download_ports_raw endpoint!
+                    window.location.href = `/api/download_ports_raw/${currentJobId}/${res.ip}`;
                 };
                 
                 actionTd.appendChild(viewBtn);
                 actionTd.appendChild(dlBtn);
                 
                 tr.appendChild(targetTd);
-                tr.appendChild(serviceTd);
-                tr.appendChild(findingsTd);
-                tr.appendChild(recTd);
+                tr.appendChild(portsTd);
                 tr.appendChild(actionTd);
                 
                 resultsBody.appendChild(tr);
             }
         }
-    }
-
-    function parseFindings(findingsStr) {
-        if (!findingsStr) return '';
-        const items = findingsStr.split('\n');
-        return items.map(item => {
-            let className = 'badge-info';
-            if (item.includes('CRITICAL') || item.includes('Expired')) className = 'badge-critical';
-            else if (item.includes('WARNING') || item.includes('Weak') || item.includes('untrusted') || item.includes('Self-signed') || item.includes('skipped')) className = 'badge-warning';
-            
-            // Clean up the text by removing our own prepended tags
-            let cleanItem = item.replace(/CRITICAL: |WARNING: |INFO: /, '');
-            return `<div style="margin-bottom: 0.5rem;"><span class="badge ${className}" style="display:inline-block; text-align: left; white-space: normal; line-height: 1.4;">${cleanItem}</span></div>`;
-        }).join('');
     }
 
     function openModal(key) {
@@ -262,12 +264,12 @@ document.addEventListener('DOMContentLoaded', () => {
     closeModal.onclick = () => rawModal.classList.add('hidden');
     
     window.onclick = (e) => {
-            if (e.target === rawModal) rawModal.classList.add('hidden');
-            if (e.target === tsModal) {
-                tsModal.classList.add('hidden');
-                if (tsInterval) clearInterval(tsInterval);
-            }
+        if (e.target === rawModal) rawModal.classList.add('hidden');
+        if (e.target === tsModal) {
+            tsModal.classList.add('hidden');
+            if (tsInterval) clearInterval(tsInterval);
         }
+    }
         
     if (troubleshootBtn) {
         troubleshootBtn.onclick = () => {
@@ -342,12 +344,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pauseBtn.classList.remove('hidden');
         scanStatusText.textContent = "Resuming...";
     };
-
-    if (skipBtn) {
-        skipBtn.onclick = () => {
-            sendAction('skip');
-        };
-    }
 
     abortBtn.onclick = () => {
         if (confirm("Are you sure you want to abort the scan?")) {

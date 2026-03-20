@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NMAP SSL Security Scanner</title>
+    <title>Open Ports Scan - NMAP Security Scanner</title>
     <!-- Use Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -26,8 +26,8 @@
         <header class="glass-panel text-center" style="position: relative;">
             <a href="{{ url_for('dashboard') }}" class="back-btn">&larr; Back to Dashboard</a>
             <a href="{{ url_for('logout') }}" class="btn btn-sm" style="position: absolute; right: 20px; top: 20px; text-decoration: none;">Logout</a>
-            <h1>Service & SSL Scanner</h1>
-            <p>Advanced Vulnerability Enumeration Mode</p>
+            <h1>Open Ports Scanner</h1>
+            <p>High-Speed Enumeration Mode (-Pn -p-)</p>
         </header>
 
         <main>
@@ -38,11 +38,32 @@
                     <div class="upload-content">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                         <p>Drag and drop your CSV file here</p>
-                        <p class="text-sm">Requirements: Must contain 'IP' and 'Port' columns</p>
+                        <p class="text-sm">Requirements: Must contain an 'IP' column</p>
                         <input type="file" id="file-input" accept=".csv" class="hidden">
                         <button class="btn btn-primary" id="browse-btn">Browse Files</button>
                     </div>
                 </div>
+
+                <div class="port-selector" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <h3 style="margin-bottom: 0.5rem; color: var(--text-primary); font-size: 1.1rem;">Custom Port Range setup (-p)</h3>
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Leave blank to default to all ports (1-65535) or specify a custom range for extreme speed.</p>
+                    <input type="text" id="custom-ports" class="form-control" placeholder="e.g. 80,443 or 1-1000" style="width: 100%; max-width: 500px; padding: 0.75rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.2); color: #fff;">
+                </div>
+
+                <div class="timing-selector" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <h3 style="margin-bottom: 0.5rem; color: var(--text-primary); font-size: 1.1rem;">Scan Timing Setup</h3>
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Select NMAP execution speed (Higher = Faster but noisier/less accurate)</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;" id="timing-buttons-group">
+                        <button class="btn btn-sm timing-btn active" data-timing="None" style="background: rgba(88, 166, 255, 0.2); border-color: rgba(88, 166, 255, 0.5);">None (Default)</button>
+                        <button class="btn btn-sm timing-btn" data-timing="T1" title="Sneaky (Slowest)">T1</button>
+                        <button class="btn btn-sm timing-btn" data-timing="T2" title="Polite (Slow)">T2</button>
+                        <button class="btn btn-sm timing-btn" data-timing="T3" title="Normal">T3</button>
+                        <button class="btn btn-sm timing-btn" data-timing="T4" title="Aggressive (Fast)">T4</button>
+                        <button class="btn btn-sm timing-btn" data-timing="T5" title="Insane (Extremely Fast)">T5</button>
+                    </div>
+                    <p id="timing-desc" style="margin-top: 0.5rem; font-size: 0.85rem; color: #8b949e;">No explicit timing flags applied. Standard reliable NMAP execution.</p>
+                </div>
+                
                 <div id="upload-error" class="error-msg hidden"></div>
             </section>
 
@@ -59,7 +80,6 @@
                 <div class="action-buttons flex-between" id="scan-actions" style="justify-content: flex-start; gap: 1rem;">
                     <button class="btn btn-sm" id="pause-btn" style="background: rgba(210, 153, 34, 0.2); border-color: rgba(210, 153, 34, 0.5);">Pause Scan</button>
                     <button class="btn btn-sm hidden" id="resume-btn" style="background: rgba(46, 160, 67, 0.2); border-color: rgba(46, 160, 67, 0.5);">Resume Scan</button>
-                    <button class="btn btn-sm" id="skip-btn" style="background: rgba(136, 146, 176, 0.2); border-color: rgba(136, 146, 176, 0.5);">Skip Active IP</button>
                     <button class="btn btn-sm" id="troubleshoot-btn" style="background: rgba(88, 166, 255, 0.2); border-color: rgba(88, 166, 255, 0.5);">Troubleshoot Scan</button>
                     <button class="btn btn-sm" id="abort-btn" style="background: rgba(248, 81, 73, 0.2); border-color: rgba(248, 81, 73, 0.5);">Abort Scan</button>
                 </div>
@@ -75,10 +95,8 @@
                     <table id="results-table">
                         <thead>
                             <tr>
-                                <th>Target</th>
-                                <th>Service & Version</th>
-                                <th>Findings</th>
-                                <th>Recommendation</th>
+                                <th>IP Address</th>
+                                <th>Open Ports</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -129,6 +147,6 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main_ports.js') }}"></script>
 </body>
 </html>

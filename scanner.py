@@ -63,16 +63,33 @@ def scan_ip(ip, port, job=None):
             job['current_process'] = process
             
         while process.poll() is None:
-            if job is not None and job.get('status') == 'aborted':
-                process.kill()
-                return {
-                    'service': 'Aborted',
-                    'version': 'N/A',
-                    'findings': ['Scan aborted by user'],
-                    'recommendation': 'N/A',
-                    'raw_output': 'Process deliberately killed mid-scan.',
-                    'command': command_str
-                }
+            if job is not None:
+                if job.get('status') == 'aborted':
+                    process.kill()
+                    return {
+                        'service': 'Aborted',
+                        'version': 'N/A',
+                        'findings': ['Scan aborted by user'],
+                        'recommendation': 'N/A',
+                        'raw_output': 'Process deliberately killed mid-scan.',
+                        'command': command_str
+                    }
+                if job.get('skip_current'):
+                    process.kill()
+                    job['skip_current'] = False
+                    return {
+                        'service': 'Skipped',
+                        'version': 'N/A',
+                        'findings': ['Manually skipped by user'],
+                        'recommendation': 'N/A',
+                        'raw_output': 'Scan skipped per user request.',
+                        'command': command_str
+                    }
+                if job.get('restart_current'):
+                    process.kill()
+                    job['restart_current'] = False
+                    job['restarted'] = True
+                    return None
             time.sleep(0.5)
             
         output, error = process.communicate()
@@ -188,3 +205,132 @@ def parse_output(output):
         findings.append(f"CRITICAL: Insecure/Deprecated ciphers detected via Ciphersuite.info: {', '.join(insecure_ciphers)}")
         
     return service, version, findings, secure_ciphers
+
+def scan_all_ports(ip, job=None):
+    cmd = ["nmap", "-Pn", "--open"]
+    
+    port_arg = "-p-"
+    if job and job.get('ports'):
+        import re
+        sanitized_ports = re.sub(r'[^0-9,\-]', '', job['ports'])
+        if sanitized_ports:
+            port_arg = f"-p{sanitized_ports}"
+            
+    cmd.append(port_arg)
+    
+    if job and job.get('timing') and job['timing'] in ['T1', 'T2', 'T3', 'T4', 'T5']:
+        cmd.append(f"-{job['timing']}")
+        
+    cmd.append(ip)
+    command_str = " ".join(cmd)
+    
+    try:
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if job is not None:
+            job['current_process'] = process
+            
+        while process.poll() is None:
+            if job is not None and job.get('status') == 'aborted':
+                process.kill()
+                return {
+                    'open_ports': 'Scan aborted by user',
+                    'raw_output': 'Process deliberately killed mid-scan.',
+                    'command': command_str
+                }
+            if job is not None and job.get('skip_current'):
+                process.kill()
+                job['skip_current'] = False
+                return {
+                    'open_ports': 'Skipped',
+                    'raw_output': 'Scan skipped.',
+                    'command': command_str
+                }
+            if job is not None and job.get('restart_current'):
+                process.kill()
+                job['restart_current'] = False
+                job['restarted'] = True
+                return None
+            time.sleep(0.5)
+            
+        output, error = process.communicate()
+        
+        if "Host seems down" in output:
+            return {
+                'open_ports': 'Host down',
+                'raw_output': output,
+                'command': command_str
+            }
+            
+        open_ports = []
+        lines = output.split('\n')
+        for line in lines:
+            match = re.match(r'^(\d+)/tcp\s+open\s+', line)
+            if match:
+                open_ports.append(match.group(1))
+                
+        open_ports_str = ", ".join(open_ports) if open_ports else "No open ports found"
+        
+        return {
+            'open_ports': open_ports_str,
+            'raw_output': output,
+            'command': command_str
+        }
+    except Exception as e:
+        return {
+            'open_ports': f"Error: {str(e)}",
+            'raw_output': '',
+            'command': command_str
+        }
+
+def scan_ip_accessibility(ip, job=None):
+    cmd = ["nmap", "-sn", "-n", ip]
+    command_str = " ".join(cmd)
+    
+    try:
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if job is not None:
+            job['current_process'] = process
+            
+        while process.poll() is None:
+            if job is not None and job.get('status') == 'aborted':
+                process.kill()
+                return {
+                    'accessibility': 'Scan aborted by user',
+                    'raw_output': 'Process deliberately killed mid-scan.',
+                    'command': command_str
+                }
+            if job is not None and job.get('skip_current'):
+                process.kill()
+                job['skip_current'] = False
+                return {
+                    'accessibility': 'Skipped',
+                    'raw_output': 'Scan skipped.',
+                    'command': command_str
+                }
+            if job is not None and job.get('restart_current'):
+                process.kill()
+                job['restart_current'] = False
+                job['restarted'] = True
+                return None
+            time.sleep(0.5)
+            
+        output, error = process.communicate()
+        
+        if "Host is up" in output:
+            accessibility = "Accessible"
+        elif "Host seems down" in output:
+            accessibility = "Not Accessible"
+        else:
+            accessibility = "Not Accessible (Blocked)"
+            
+        return {
+            'accessibility': accessibility,
+            'raw_output': output,
+            'command': command_str
+        }
+    except Exception as e:
+        return {
+            'accessibility': f"Error: {str(e)}",
+            'raw_output': '',
+            'command': command_str
+        }
