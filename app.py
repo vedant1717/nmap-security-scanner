@@ -494,7 +494,17 @@ def download_raw(job_id, ip, port):
             
             # HTML escape the output to prevent injection and format
             escaped_output = html_lib.escape(raw_output)
-            lines = escaped_output.split('\n')
+            raw_lines = escaped_output.split('\n')
+            
+            lines = []
+            for line in raw_lines:
+                if line.strip().startswith('Stats:'):
+                    continue
+                if line.strip().startswith('Starting Nmap'):
+                    continue
+                if line.strip().startswith('Nmap done:'):
+                    continue
+                lines.append(line)
             
             bad_keywords = ['TLSv1.0', 'TLSv1.1']
             if 'Expired' in findings:
