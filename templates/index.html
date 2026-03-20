@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NMAP SSL Security Scanner</title>
+    <!-- Use Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="glass-bg"></div>
+    
+    <div class="container">
+        <header class="glass-panel text-center" style="position: relative;">
+            <a href="{{ url_for('logout') }}" class="btn btn-sm" style="position: absolute; right: 20px; top: 20px; text-decoration: none;">Logout</a>
+            <h1>NMAP Security Scanner</h1>
+            <p>Advanced SSL/TLS & Port Vulnerability Discovery</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <section class="glass-panel" id="upload-section">
+                <h2>Upload Targets</h2>
+                <div class="upload-zone" id="drop-zone">
+                    <div class="upload-content">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <p>Drag and drop your CSV file here</p>
+                        <p class="text-sm">Requirements: Must contain 'IP' and 'Port' columns</p>
+                        <input type="file" id="file-input" accept=".csv" class="hidden">
+                        <button class="btn btn-primary" id="browse-btn">Browse Files</button>
+                    </div>
+                </div>
+                <div id="upload-error" class="error-msg hidden"></div>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="glass-panel hidden" id="progress-section">
+                <h2>Scanning in Progress</h2>
+                <div class="progress-info">
+                    <span id="scan-status-text">Initializing...</span>
+                    <span id="scan-count">0 / 0</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progress-bar-fill"></div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="glass-panel hidden" id="results-section">
+                <div class="flex-between">
+                    <h2>Scan Results</h2>
+                    <button class="btn btn-success hidden" id="download-btn">Download CSV Report</button>
+                </div>
+                <div class="table-container">
+                    <table id="results-table">
+                        <thead>
+                            <tr>
+                                <th>Target</th>
+                                <th>Service & Version</th>
+                                <th>Findings</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-body">
+                            <!-- Rows inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="text-center" style="margin-top: 2rem; padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">
+        &copy; Copyright at Vedant Patil
+    </footer>
+
+    <!-- Modal for Raw Output -->
+    <div class="modal hidden" id="raw-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3>Raw NMAP Output</h3>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="command-line">
+                <code>$ <span id="modal-command"></span></code>
+            </div>
+            <pre class="terminal" id="modal-output"></pre>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+:root {
+    --bg-color: #0d1117;
+    --text-primary: #c9d1d9;
+    --text-secondary: #8b949e;
+    --glass-bg: rgba(22, 27, 34, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --accent-blue: #58a6ff;
+    --accent-purple: #8957e5;
+    --btn-primary: #238636;
+    --btn-primary-hover: #2ea043;
+    --btn-download: #1f6feb;
+    --btn-download-hover: #388bfd;
+    --critical-color: #f85149;
+    --warning-color: #d29922;
+    --info-color: #58a6ff;
+    --terminal-bg: #010409;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+    line-height: 1.6;
+}
+
+/* Background gradient blobs */
+.glass-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    overflow: hidden;
+    background: radial-gradient(circle at 15% 50%, rgba(88, 166, 255, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(137, 87, 229, 0.15), transparent 25%);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.text-center { text-align: center; }
+.hidden { display: none !important; }
+.flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+h1 { font-size: 2.5rem; font-weight: 700; background: linear-gradient(120deg, var(--accent-blue), var(--accent-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
+h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; }
+p { color: var(--text-secondary); }
+
+/* Buttons */
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #fff;
+}
+.btn-primary { background-color: var(--btn-primary); }
+.btn-primary:hover { background-color: var(--btn-primary-hover); transform: translateY(-1px); }
+.btn-success { background-color: var(--btn-download); }
+.btn-success:hover { background-color: var(--btn-download-hover); transform: translateY(-1px); }
+.btn-sm { padding: 0.4rem 0.8rem; font-size: 0.875rem; background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 6px; cursor: pointer; color: #fff;}
+.btn-sm:hover { background: rgba(255,255,255,0.2); }
+
+/* Upload Zone */
+.upload-zone {
+    border: 2px dashed rgba(88, 166, 255, 0.5);
+    border-radius: 12px;
+    padding: 3rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: rgba(88, 166, 255, 0.02);
+}
+.upload-zone.dragover {
+    border-color: var(--accent-blue);
+    background: rgba(88, 166, 255, 0.1);
+    transform: scale(1.02);
+}
+.upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+.upload-content svg { color: var(--accent-blue); }
+.error-msg {
+    color: var(--critical-color);
+    margin-top: 1rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: rgba(248, 81, 73, 0.1);
+}
+
+/* Progress Section */
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+.progress-bar-container {
+    width: 100%;
+    height: 12px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+    border-radius: 6px;
+    transition: width 0.3s ease;
+}
+
+/* Table */
+.table-container { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; }
+th, td { padding: 1rem; border-bottom: 1px solid var(--glass-border); }
+th { font-weight: 600; color: #fff; background: rgba(255,255,255,0.05); }
+tr:last-child td { border-bottom: none; }
+tr:hover { background: rgba(255,255,255,0.02); }
+
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.badge-critical { background: rgba(248, 81, 73, 0.15); color: var(--critical-color); border: 1px solid rgba(248, 81, 73, 0.3); }
+.badge-warning { background: rgba(210, 153, 34, 0.15); color: var(--warning-color); border: 1px solid rgba(210, 153, 34, 0.3); }
+.badge-info { background: rgba(88, 166, 255, 0.15); color: var(--info-color); border: 1px solid rgba(88, 166, 255, 0.3); }
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+}
+.modal-content {
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+.close-btn {
+    background: none; border: none; font-size: 2rem;
+    color: var(--text-secondary); cursor: pointer;
+    line-height: 1;
+}
+.close-btn:hover { color: #fff; }
+.command-line {
+    background: rgba(255,255,255,0.05); padding: 1rem;
+    border-radius: 8px; margin-bottom: 1rem;
+    font-family: monospace; color: var(--accent-blue);
+    word-break: break-all;
+}
+.terminal {
+    background: var(--terminal-bg);
+    padding: 1rem; border-radius: 8px;
+    color: #e6edf3; font-family: monospace;
+    font-size: 0.9rem; white-space: pre-wrap;
+    overflow-y: auto; flex-grow: 1;
+    border: 1px solid rgba(255,255,255,0.1);
+}
