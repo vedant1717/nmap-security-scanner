@@ -496,13 +496,20 @@ def download_raw(job_id, ip, port):
             escaped_output = html_lib.escape(raw_output)
             raw_lines = escaped_output.split('\n')
             
+            unwanted_prefixes = (
+                'Stats:',
+                'Starting Nmap',
+                'Nmap done:',
+                'Initiating',
+                'Completed',
+                'NSE:',
+                'Read data files from:',
+                'Service detection performed'
+            )
+            
             lines = []
             for line in raw_lines:
-                if line.strip().startswith('Stats:'):
-                    continue
-                if line.strip().startswith('Starting Nmap'):
-                    continue
-                if line.strip().startswith('Nmap done:'):
+                if line.strip().startswith(unwanted_prefixes):
                     continue
                 lines.append(line)
             
