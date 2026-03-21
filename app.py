@@ -500,16 +500,16 @@ def download_raw(job_id, ip, port):
                 'Stats:',
                 'Starting Nmap',
                 'Nmap done:',
-                'Initiating',
-                'Completed',
-                'NSE:',
-                'Read data files from:',
-                'Service detection performed'
+                'Nmap scan report for',
+                'Host is up'
             )
             
             lines = []
             for line in raw_lines:
-                if line.strip().startswith(unwanted_prefixes):
+                line_stripped = line.strip()
+                if line_stripped.startswith(unwanted_prefixes):
+                    continue
+                if 'Timing: About' in line_stripped:
                     continue
                 lines.append(line)
             
