@@ -581,6 +581,68 @@ pre {{ white-space: pre-wrap; word-wrap: break-word; line-height: 1.4; }}
             
     return jsonify({'error': 'Result not found for the specified Target'}), 404
 
+@app.route('/api/download_ports_raw/<job_id>/<ip>', methods=['GET'])
+@login_required
+def download_ports_raw(job_id, ip):
+    job = scan_jobs.get(job_id)
+    if not job:
+        return jsonify({'error': 'Job not found'}), 404
+        
+    for res in job['results']:
+        if res['ip'] == ip:
+            raw_output = res['raw_output']
+            escaped_output = html_lib.escape(raw_output)
+            raw_lines = escaped_output.split('\n')
+            
+            unwanted_prefixes = (
+                'Stats:',
+                'Starting Nmap',
+                'Nmap done:',
+                'Nmap scan report for',
+                'Host is up'
+            )
+            
+            lines = []
+            for line in raw_lines:
+                line_stripped = line.strip()
+                if line_stripped.startswith(unwanted_prefixes):
+                    continue
+                if 'Timing: About' in line_stripped:
+                    continue
+                lines.append(line)
+                
+            final_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<title>NMAP Open Ports - {ip}</title>
+<style>
+body {{ background-color: #0d1117; color: #c9d1d9; font-family: monospace; padding: 20px; }}
+pre {{ white-space: pre-wrap; word-wrap: break-word; line-height: 1.4; }}
+</style>
+</head>
+<body>
+<h2>NMAP Open Ports Result for {ip}</h2>
+<p style="color:#8b949e; font-size: 0.9em;">Command: {html_lib.escape(res['command'])}</p>
+<hr style="border:1px solid #30363d; margin-bottom:20px;">
+<pre>
+{chr(10).join(lines)}
+</pre>
+</body>
+</html>"""
+            
+            output_io = io.BytesIO()
+            output_io.write(final_html.encode('utf-8'))
+            output_io.seek(0)
+            
+            return send_file(
+                output_io,
+                mimetype='text/html',
+                as_attachment=True,
+                download_name=f'nmap_ports_{ip}.html'
+            )
+            
+    return jsonify({'error': 'Result not found for the specified Target'}), 404
+
 @app.route('/api/download_target_raw/<job_id>/<ip>', methods=['GET'])
 @login_required
 def download_target_raw(job_id, ip):
