@@ -528,8 +528,6 @@ def download_raw(job_id, ip, port):
             bad_keywords.extend(findings_ciphers)
             
             target_version = res.get('version', '')
-            # Enforce that versions must contain numbers to warrant explicit Red Highlighting
-            has_digit = bool(re.search(r'\d', target_version)) if target_version else False
             
             highlighted_lines = []
             for line in lines:
@@ -540,9 +538,13 @@ def download_raw(job_id, ip, port):
                         break
                         
                 # Version Disclosure Strict Regex Matching
-                if not is_bad and target_version and target_version not in ['Unknown', 'N/A'] and has_digit:
-                    if target_version in line and re.match(r'^\d+/(tcp|udp)\s+open', line):
-                        is_bad = True
+                if not is_bad and re.match(r'^\d+/(tcp|udp)\s+open', line):
+                    # Extract the trailing string mapping beyond the port and service name natively
+                    v_match = re.search(r'^\d+/(tcp|udp)\s+open\s+[\w\-\/\.]+\s+(.*)$', line)
+                    if v_match:
+                        v_part = v_match.group(2).strip()
+                        if v_part and not v_part.startswith('|') and not v_part.startswith('_') and bool(re.search(r'\d', v_part)):
+                            is_bad = True
                 
                 if is_bad:
                     highlighted_lines.append(f'<span style="color: #ff5555; font-weight: bold;">{line}</span>')
