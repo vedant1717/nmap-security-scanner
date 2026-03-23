@@ -41,11 +41,15 @@ Built with Python/Flask, NMAP, and a modern, beautiful Vanilla CSS frontend feat
    python3 -m venv venv
    source venv/bin/activate
    ```
-5. **Install Python Dependencies**:
+5. **Configure Secure Authentication**:
+   ```bash
+   cp .env.example .env
+   ```
+6. **Install Python Dependencies**:
    ```bash
    pip3 install -r requirements.txt
    ```
-6. **Run the Application**:
+7. **Run the Application**:
    ```bash
    python3 app.py
    ```
@@ -68,11 +72,15 @@ Built with Python/Flask, NMAP, and a modern, beautiful Vanilla CSS frontend feat
    python -m venv venv
    venv\Scripts\activate
    ```
-5. **Install Python Dependencies**:
+5. **Configure Secure Authentication**:
+   ```cmd
+   copy .env.example .env
+   ```
+6. **Install Python Dependencies**:
    ```cmd
    pip install -r requirements.txt
    ```
-6. **Run the Application**:
+7. **Run the Application**:
    ```cmd
    python app.py
    ```
