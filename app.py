@@ -8,7 +8,9 @@ from flask import Flask, request, jsonify, render_template, send_file, session, 
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
 from scanner import scan_ip, scan_all_ports, scan_ip_accessibility
+from dotenv import load_dotenv
 
+load_dotenv()
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = 'super_secret_session_key_12345'
@@ -34,8 +36,10 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         # Secured password hash derived using pbkdf2/scrypt 
-        secure_hash = "scrypt:32768:8:1$ySmtejLmidfsh4NC$8e850f3c9086f327e5ad1aaaf8c78ad3a825614aed2067173135129635abf431d96904e2fc8659feb6f80ce24091828cae90cdd79a8cd6cb735b5123beb960df"
-        if username == 'vedantpatil' and check_password_hash(secure_hash, password):
+        secure_hash = os.environ.get('ADMIN_PASSWORD_HASH')
+        admin_username = os.environ.get('ADMIN_USERNAME', 'vedantpatil')
+        
+        if secure_hash and username == admin_username and check_password_hash(secure_hash, password):
             session['logged_in'] = True
             return redirect(url_for('dashboard'))
         else:

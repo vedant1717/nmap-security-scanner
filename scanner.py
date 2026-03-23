@@ -55,7 +55,6 @@ def generate_recommendations(findings, version="Unknown", secure_ciphers=None):
     return "It is recommended to maintain the current secure configuration."
 
 def scan_ip(ip, port, job=None):
-    import re
     sanitized_port = re.sub(r'[^0-9,\-]', '', str(port))
     sanitized_port = re.sub(r',+', ',', sanitized_port).strip(',')
     if not sanitized_port:
@@ -233,7 +232,6 @@ def scan_all_ports(ip, job=None):
     
     port_arg = "-p-"
     if job and job.get('ports'):
-        import re
         sanitized_ports = re.sub(r'[^0-9,\-]', '', job['ports'])
         sanitized_ports = re.sub(r',+', ',', sanitized_ports).strip(',')
         if sanitized_ports:
