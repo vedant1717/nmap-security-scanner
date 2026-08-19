@@ -7,7 +7,7 @@ from functools import wraps
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
-from scanner import scan_ip, scan_all_ports, scan_ip_accessibility
+from scanner import scan_ip, scan_all_ports, scan_ip_accessibility, scan_nmap_automator
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -70,6 +70,11 @@ def port_scan_page():
 @login_required
 def ip_scan_page():
     return render_template('ip_scan.html')
+
+@app.route('/automator')
+@login_required
+def automator_scan_page():
+    return render_template('automator_scan.html')
 
 @app.route('/api/upload', methods=['POST'])
 @login_required
@@ -322,6 +327,91 @@ def process_ip_scans(job_id, targets):
             job['completed'] += 1
             break
         
+    if job['status'] != 'aborted':
+        job['status'] = 'completed'
+
+@app.route('/api/upload_automator', methods=['POST'])
+@login_required
+def upload_automator_csv():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+        
+    if file and file.filename.endswith('.csv'):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        targets = []
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    ip_col = next((k for k in row.keys() if 'ip' in k.lower()), None)
+                    if ip_col:
+                        targets.append({'ip': row[ip_col].strip()})
+        except Exception as e:
+            return jsonify({'error': f"Failed to parse CSV: {str(e)}"}), 400
+            
+        if not targets:
+            return jsonify({'error': 'Could not find "IP" column in CSV.'}), 400
+            
+        scan_type = request.form.get('scan_type', 'port')
+            
+        job_id = str(uuid.uuid4())
+        scan_jobs[job_id] = {
+            'type': 'automator',
+            'status': 'running',
+            'total': len(targets),
+            'completed': 0,
+            'results': [],
+            'scan_type': scan_type,
+            'job_id': job_id
+        }
+        
+        thread = threading.Thread(target=process_automator_scans, args=(job_id, targets, scan_type))
+        thread.start()
+        
+        return jsonify({'job_id': job_id, 'message': 'Nmap Automator scan started successfully'})
+        
+    return jsonify({'error': 'Invalid file format. Please upload a CSV file.'}), 400
+
+def process_automator_scans(job_id, targets, scan_type):
+    import time
+    job = scan_jobs[job_id]
+    for target in targets:
+        while job['status'] == 'paused':
+            time.sleep(1)
+            
+        if job['status'] == 'aborted':
+            break
+            
+        ip = target['ip']
+        job['current_target'] = ip
+        
+        while True:
+            job['current_target_start_time'] = time.time()
+            result = scan_nmap_automator(ip, scan_type, job_id=job_id, job=job)
+            
+            if job.get('restarted'):
+                job['restarted'] = False
+                continue
+                
+            if result is None:
+                break
+                
+            job['results'].append({
+                'ip': ip,
+                'open_ports': result['open_ports'],
+                'findings': '\n'.join(result['findings']) if isinstance(result['findings'], list) else result['findings'],
+                'raw_output': result['raw_output'],
+                'command': result['command']
+            })
+            job['completed'] += 1
+            break
+            
     if job['status'] != 'aborted':
         job['status'] = 'completed'
 
@@ -688,6 +778,120 @@ pre {{ white-space: pre-wrap; word-wrap: break-word; line-height: 1.4; }}
             )
             
     return jsonify({'error': 'Result not found'}), 404
+
+@app.route('/api/download_automator/<job_id>', methods=['GET'])
+@login_required
+def download_automator_report(job_id):
+    job = scan_jobs.get(job_id)
+    if not job or job['status'] != 'completed':
+        return jsonify({'error': 'Job not ready or not found'}), 404
+        
+    si = io.StringIO()
+    writer = csv.writer(si)
+    writer.writerow(['IP', 'Open Ports', 'Findings'])
+    
+    for res in job['results']:
+        writer.writerow([res['ip'], res['open_ports'], res['findings']])
+        
+    output = io.BytesIO()
+    output.write(si.getvalue().encode('utf-8'))
+    output.seek(0)
+    
+    return send_file(
+        output,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='nmap_automator_report.csv'
+    )
+
+@app.route('/api/download_automator_raw/<job_id>/<ip>', methods=['GET'])
+@login_required
+def download_automator_raw(job_id, ip):
+    job = scan_jobs.get(job_id)
+    if not job:
+        return jsonify({'error': 'Job not found'}), 404
+        
+    for res in job['results']:
+        if res['ip'] == ip:
+            raw_output = res['raw_output']
+            escaped_output = html_lib.escape(raw_output)
+            raw_lines = escaped_output.split('\n')
+            
+            unwanted_prefixes = (
+                'Stats:',
+                'Starting Nmap',
+                'Nmap done:',
+                'Nmap scan report for',
+                'Host is up'
+            )
+            
+            lines = []
+            for line in raw_lines:
+                line_stripped = line.strip()
+                if line_stripped.startswith(unwanted_prefixes):
+                    continue
+                if 'Timing: About' in line_stripped or 'elapsed -' in line_stripped:
+                    continue
+                lines.append(line)
+                
+            bad_keywords = [
+                'CRITICAL', 'WARNING', 'VULNERABLE', 'CVE-', 'Weak', 'Insecure', 'Expired',
+                'Self-signed', 'non-trusted', 'untrusted', 'TLSv1.0', 'TLSv1.1'
+            ]
+            
+            highlighted_lines = []
+            for line in lines:
+                is_bad = False
+                line_upper = line.upper()
+                for kw in bad_keywords:
+                    if kw.upper() in line_upper:
+                        is_bad = True
+                        break
+                        
+                # Version Disclosure highlight on port lines
+                if not is_bad and re.match(r'^\d+/(tcp|udp)\s+open', line.strip()):
+                    v_match = re.search(r'^\d+/(tcp|udp)\s+open\s+[\w\-\/\.]+\s+(.*)$', line.strip())
+                    if v_match:
+                        v_part = v_match.group(2).strip()
+                        if v_part and not v_part.startswith('|') and not v_part.startswith('_') and bool(re.search(r'\d', v_part)):
+                            is_bad = True
+                            
+                if is_bad:
+                    highlighted_lines.append(f'<span style="color: #ff5555; font-weight: bold;">{line}</span>')
+                else:
+                    highlighted_lines.append(line)
+                    
+            final_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<title>NMAP Automator Output - {ip}</title>
+<style>
+body {{ background-color: #0d1117; color: #c9d1d9; font-family: monospace; padding: 20px; }}
+pre {{ white-space: pre-wrap; word-wrap: break-word; line-height: 1.4; }}
+</style>
+</head>
+<body>
+<h2>NMAP Automator Scan Result for {ip}</h2>
+<p style="color:#8b949e; font-size: 0.9em;">Command: {html_lib.escape(res['command'])}</p>
+<hr style="border:1px solid #30363d; margin-bottom:20px;">
+<pre>
+{chr(10).join(highlighted_lines)}
+</pre>
+</body>
+</html>"""
+            
+            output_io = io.BytesIO()
+            output_io.write(final_html.encode('utf-8'))
+            output_io.seek(0)
+            
+            return send_file(
+                output_io,
+                mimetype='text/html',
+                as_attachment=True,
+                download_name=f'nmap_automator_{ip}.html'
+            )
+            
+    return jsonify({'error': 'Result not found for the specified Target'}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

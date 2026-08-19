@@ -7,9 +7,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        .grid-3 {
+        .grid-4 {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 2rem;
             margin-top: 2rem;
         }
@@ -17,7 +17,7 @@
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--glass-border);
             border-radius: 16px;
-            padding: 2.5rem;
+            padding: 2rem 1.5rem;
             text-align: center;
             transition: all 0.3s ease;
             cursor: pointer;
@@ -27,7 +27,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 250px;
+            min-height: 280px;
         }
         .card:hover {
             transform: translateY(-5px);
@@ -35,14 +35,14 @@
             border-color: rgba(88, 166, 255, 0.4);
             box-shadow: 0 8px 32px rgba(88, 166, 255, 0.1);
         }
-        .card h2 { margin-bottom: 1rem; color: var(--accent-blue); font-size: 1.8rem; }
-        .card p { font-size: 1rem; line-height: 1.5; color: var(--text-secondary); }
+        .card h2 { margin-bottom: 1rem; color: var(--accent-blue); font-size: 1.5rem; }
+        .card p { font-size: 0.95rem; line-height: 1.5; color: var(--text-secondary); }
         
-        @media (max-width: 992px) {
-            .grid-3 { grid-template-columns: 1fr 1fr; }
+        @media (max-width: 1200px) {
+            .grid-4 { grid-template-columns: 1fr 1fr; }
         }
         @media (max-width: 768px) {
-            .grid-3 { grid-template-columns: 1fr; }
+            .grid-4 { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -55,7 +55,7 @@
             <p>Select a scanning module to proceed</p>
         </header>
 
-        <main class="grid-3">
+        <main class="grid-4">
             <a href="{{ url_for('ip_scan_page') }}" class="card glass-panel">
                 <h2>IP Accessibility Scan</h2>
                 <p>Execute rapid Ping-sweeps (-sn) across mass target lists. Skip resolution and immediately identify if hosts are Accessible or Not Accessible.</p>
@@ -69,6 +69,11 @@
             <a href="{{ url_for('service_scan_page') }}" class="card glass-panel">
                 <h2>Service & SSL Scan</h2>
                 <p>Perform advanced SSL/TLS analysis against specific IPs and Ports. Validates ciphers against Ciphersuite.info, monitors certificate expiry, and parses exact software versions.</p>
+            </a>
+
+            <a href="{{ url_for('automator_scan_page') }}" class="card glass-panel">
+                <h2>Nmap Automator Scan</h2>
+                <p>Execute complete automated scans via nmapAutomator.sh. Supports customizable scan types (Port, Vulns, Script, Full, UDP, Recon, All) with detailed output highlighting.</p>
             </a>
         </main>
     </div>

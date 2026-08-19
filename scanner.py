@@ -383,3 +383,157 @@ def scan_ip_accessibility(ip, job=None):
             'raw_output': '',
             'command': command_str
         }
+
+def parse_automator_findings(output):
+    findings = []
+    open_ports = []
+    
+    # Extract open ports
+    # e.g., 80/tcp open http nginx 1.18.0
+    for line in output.split('\n'):
+        line_stripped = line.strip()
+        port_match = re.match(r'^(\d+/(tcp|udp))\s+open\s+', line_stripped)
+        if port_match:
+            open_ports.append(port_match.group(1))
+            
+    # Extract vulnerabilities and issues
+    # Matches CVEs (e.g. CVE-2021-34473)
+    cves = re.findall(r'(CVE-\d{4}-\d+)', output, re.IGNORECASE)
+    if cves:
+        unique_cves = sorted(list(set(cves)))
+        findings.append(f"CRITICAL: Identified CVEs: {', '.join(unique_cves)}")
+        
+    # Matches VULNERABLE indicators
+    vulnerable_lines = []
+    for line in output.split('\n'):
+        if 'VULNERABLE' in line.upper() and not 'NOT VULNERABLE' in line.upper():
+            vulnerable_lines.append(line.strip())
+    if vulnerable_lines:
+        findings.append("CRITICAL: Vulnerability script matched active VULNERABLE flags")
+        
+    # Check for expired/weak TLS issues in the output if ssl scripts were run
+    if "TLSv1.0:" in output:
+        findings.append("CRITICAL: TLSv1.0 is enabled (Outdated/Insecure)")
+    if "TLSv1.1:" in output:
+        findings.append("CRITICAL: TLSv1.1 is enabled (Outdated/Insecure)")
+        
+    # Check expired certificates
+    if "expired" in output.lower():
+        findings.append("CRITICAL: Expired certificate detected")
+        
+    # Check self-signed
+    if "self-signed" in output.lower():
+        findings.append("WARNING: Self-signed certificate detected")
+        
+    # Weak ciphers
+    weak_ciphers = []
+    insecure_ciphers = []
+    cipher_matches = re.findall(r'(TLS_[A-Z0-9_]+WITH[A-Z0-9_]+)', output)
+    unique_ciphers = list(set(cipher_matches))
+    for cipher in unique_ciphers:
+        security = get_cipher_security(cipher)
+        if security == 'insecure':
+            insecure_ciphers.append(cipher)
+        elif security == 'weak':
+            weak_ciphers.append(cipher)
+    if weak_ciphers:
+        findings.append(f"WARNING: Weak ciphers detected: {', '.join(weak_ciphers)}")
+    if insecure_ciphers:
+        findings.append(f"CRITICAL: Insecure/Deprecated ciphers detected: {', '.join(insecure_ciphers)}")
+        
+    if not findings:
+        if open_ports:
+            findings.append("INFO: Ports open, no critical vulnerabilities identified in scan")
+        else:
+            findings.append("Clean")
+            
+    return ", ".join(open_ports) if open_ports else "No open ports found", findings
+
+def scan_nmap_automator(ip, scan_type, job_id=None, job=None):
+    # Ensure scan_type is valid
+    valid_types = ['network', 'port', 'script', 'full', 'udp', 'vulns', 'recon', 'all']
+    s_type = scan_type.lower()
+    if s_type not in valid_types:
+        s_type = 'port'
+        
+    # Configure output directory under uploads/automator/<job_id>/<ip>
+    output_dir = f"uploads/automator/{job_id}/{ip}" if job_id else f"uploads/automator/temp/{ip}"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    cmd = ["bash", "nmapAutomator.sh", "-H", ip, "-t", s_type, "-o", output_dir]
+    command_str = " ".join(cmd)
+    
+    try:
+        # Run subprocess with DEVNULL stdin to make head -n 1 non-blocking
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, text=True)
+        
+        output_buffer = []
+        if job is not None:
+            job['current_process'] = process
+            job['live_output'] = ''
+            
+        def reader():
+            for line in process.stdout:
+                output_buffer.append(line)
+                if job is not None:
+                    job['live_output'] += line
+                    
+        reader_thread = threading.Thread(target=reader)
+        reader_thread.daemon = True
+        reader_thread.start()
+        
+        while process.poll() is None:
+            if job is not None:
+                if job.get('status') == 'aborted':
+                    process.kill()
+                    return {
+                        'open_ports': 'Scan aborted by user',
+                        'findings': ['Scan aborted by user'],
+                        'raw_output': 'Process deliberately killed mid-scan.',
+                        'command': command_str
+                    }
+                if job.get('skip_current'):
+                    process.kill()
+                    job['skip_current'] = False
+                    return {
+                        'open_ports': 'Skipped',
+                        'findings': ['Manually skipped by user'],
+                        'raw_output': 'Scan skipped per user request.',
+                        'command': command_str
+                    }
+                if job.get('restart_current'):
+                    process.kill()
+                    job['restart_current'] = False
+                    job['restarted'] = True
+                    return None
+            time.sleep(0.5)
+            
+        reader_thread.join()
+        output = "".join(output_buffer)
+        
+        # Check if host is down
+        if "Host seems down" in output or "Could not resolve IP" in output:
+            return {
+                'open_ports': 'Host down/unresolvable',
+                'findings': ['Host is unreachable or IP could not be resolved'],
+                'raw_output': output,
+                'command': command_str
+            }
+            
+        open_ports, findings = parse_automator_findings(output)
+        
+        return {
+            'open_ports': open_ports,
+            'findings': findings,
+            'raw_output': output,
+            'command': command_str
+        }
+        
+    except Exception as e:
+        return {
+            'open_ports': 'Error',
+            'findings': [f"Execution error: {str(e)}"],
+            'raw_output': '',
+            'command': command_str
+        }
+

@@ -6,6 +6,11 @@ Built with Python/Flask, NMAP, and a modern, beautiful Vanilla CSS frontend feat
 ## Features
 - **Secure Authentication**: Protected dashboard using hashed credentials algorithm.
 - **CSV Uploads**: Upload a list of targets and automatically scan them.
+- **Scanning Modules**:
+  - **IP Accessibility Scan**: Rapid ping sweeps (`-sn`) across targets.
+  - **Open Ports Scan**: High-speed comprehensive port scans (`-p-`).
+  - **Service & SSL Scan**: Deep SSL cipher checking, cert validity, and version disclosures.
+  - **Nmap Automator Scan**: Full automated pipeline using `nmapAutomator.sh` supporting diverse modes (Port, Vulns, Script, Full, UDP, Recon, All).
 - **In-depth NMAP Parsing**: 
   - Detects Service and Version (flags version disclosure).
   - Checks if SSL certificate is expired against the current system date.
@@ -91,9 +96,13 @@ Built with Python/Flask, NMAP, and a modern, beautiful Vanilla CSS frontend feat
 ## How to use
 1. Go to `http://127.0.0.1:5001`.
 2. Login using the default credentials.
-3. Prepare a target `.csv` file. It **must contain** headers named `IP` and `Port`.
-4. Drag and drop the `.csv` file into the upload zone on the web interface.
-5. Watch the real-time background scanning complete and click **Download CSV Report** when ready.
+3. Prepare a target `.csv` file:
+   - For **Service & SSL Scan**: Must contain `IP` and `Port` columns.
+   - For **IP Accessibility**, **Open Ports**, and **Nmap Automator Scan**: Must contain at least an `IP` column.
+4. Select your scanning module from the Dashboard.
+5. Choose any specific settings (e.g. ports, timing switches, or automator scan types).
+6. Drag and drop your `.csv` file into the upload zone.
+7. Watch the real-time scanning progress (use **Live CLI View** for streaming stdout) and click **Download CSV Report** or **Download Output (.html)** when complete.
 
 ---
 &copy; Copyright at Vedant Patil

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nmap Automator Scan - NMAP Security Scanner</title>
+    <!-- Use Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .back-btn {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            text-decoration: none;
+            color: var(--accent-blue);
+            font-weight: 500;
+        }
+        .back-btn:hover { color: #fff; }
+        
+        .scan-type-selector {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .scan-type-selector select {
+            width: 100%;
+            max-width: 500px;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(13, 17, 23, 0.9);
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        .scan-type-selector select:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 8px rgba(88, 166, 255, 0.4);
+        }
+        .scan-type-desc {
+            margin-top: 0.75rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-bg"></div>
+    
+    <div class="container">
+        <header class="glass-panel text-center" style="position: relative;">
+            <a href="{{ url_for('dashboard') }}" class="back-btn">&larr; Back to Dashboard</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm" style="position: absolute; right: 20px; top: 20px; text-decoration: none;">Logout</a>
+            <h1>Nmap Automator Scanner</h1>
+            <p>Full Scripted Automation Scan Mode (nmapAutomator.sh)</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <section class="glass-panel" id="upload-section">
+                <h2>Upload Targets</h2>
+                <div class="upload-zone" id="drop-zone">
+                    <div class="upload-content">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <p>Drag and drop your CSV file here</p>
+                        <p class="text-sm">Requirements: Must contain an 'IP' column</p>
+                        <input type="file" id="file-input" accept=".csv" class="hidden">
+                        <button class="btn btn-primary" id="browse-btn">Browse Files</button>
+                    </div>
+                </div>
+
+                <div class="scan-type-selector">
+                    <h3 style="margin-bottom: 0.5rem; color: var(--text-primary); font-size: 1.1rem;">Automator Scan Type</h3>
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Select the scan type to execute against targets:</p>
+                    <select id="scan-type">
+                        <option value="port" selected>Port - Shows all open ports (~15 seconds)</option>
+                        <option value="script">Script - Runs script scan on found ports (~5 mins)</option>
+                        <option value="full">Full - Full range port scan & script scan (~5-10 mins)</option>
+                        <option value="udp">UDP - Runs UDP scan (requires sudo) (~5 mins)</option>
+                        <option value="vulns">Vulns - CVE scan & Vuln scripts (~5-15 mins)</option>
+                        <option value="recon">Recon - Suggests & executes recon commands</option>
+                        <option value="all">All - Runs all scans (~20-30 mins)</option>
+                        <option value="network">Network - Active hosts in subnet (~15 seconds)</option>
+                    </select>
+                    <p id="scan-type-desc" class="scan-type-desc">Port Scan: Quickly discovers all open TCP ports on the host.</p>
+                </div>
+                
+                <div id="upload-error" class="error-msg hidden"></div>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="glass-panel hidden" id="progress-section">
+                <h2>Scanning in Progress</h2>
+                <div class="progress-info">
+                    <span id="scan-status-text">Initializing...</span>
+                    <span id="scan-count">0 / 0</span>
+                </div>
+                <div class="progress-bar-container" style="margin-bottom: 1.5rem;">
+                    <div class="progress-bar" id="progress-bar-fill"></div>
+                </div>
+                <div class="action-buttons flex-between" id="scan-actions" style="justify-content: flex-start; gap: 1rem;">
+                    <button class="btn btn-sm" id="pause-btn" style="background: rgba(210, 153, 34, 0.2); border-color: rgba(210, 153, 34, 0.5);">Pause Scan</button>
+                    <button class="btn btn-sm hidden" id="resume-btn" style="background: rgba(46, 160, 67, 0.2); border-color: rgba(46, 160, 67, 0.5);">Resume Scan</button>
+                    <button class="btn btn-sm" id="skip-btn" style="background: rgba(136, 146, 176, 0.2); border-color: rgba(136, 146, 176, 0.5);">Skip Active IP</button>
+                    <button class="btn btn-sm" id="live-btn" style="background: rgba(136, 146, 176, 0.2); border-color: rgba(136, 146, 176, 0.5);">Live CLI View</button>
+                    <button class="btn btn-sm" id="troubleshoot-btn" style="background: rgba(88, 166, 255, 0.2); border-color: rgba(88, 166, 255, 0.5);">Troubleshoot Scan</button>
+                    <button class="btn btn-sm" id="abort-btn" style="background: rgba(248, 81, 73, 0.2); border-color: rgba(248, 81, 73, 0.5);">Abort Scan</button>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="glass-panel hidden" id="results-section">
+                <div class="flex-between">
+                    <h2>Scan Results</h2>
+                    <button class="btn btn-success hidden" id="download-btn">Download CSV Report</button>
+                </div>
+                <div class="table-container">
+                    <table id="results-table">
+                        <thead>
+                            <tr>
+                                <th>Target</th>
+                                <th>Open Ports</th>
+                                <th>Findings</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-body">
+                            <!-- Rows inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="text-center" style="margin-top: 2rem; padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">
+        &copy; Copyright at Vedant Patil
+    </footer>
+
+    <!-- Modal for Raw Output -->
+    <div class="modal hidden" id="raw-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3>Raw Output Details</h3>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="command-line">
+                <code>$ <span id="modal-command"></span></code>
+            </div>
+            <pre class="terminal" id="modal-output"></pre>
+        </div>
+    </div>
+
+    <!-- Troubleshooting Modal -->
+    <div class="modal hidden" id="ts-modal">
+        <div class="modal-content glass-panel" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Mid-Scan Diagnostics</h3>
+                <button class="close-btn" id="close-ts-modal">&times;</button>
+            </div>
+            <div style="margin-top: 1rem;">
+                <p><strong>Active Target:</strong> <span id="ts-target">N/A</span></p>
+                <p><strong>Elapsed Time:</strong> <span id="ts-elapsed">0</span> seconds</p>
+                <div style="margin-top: 1rem;">
+                    <span id="ts-diagnostic" class="badge badge-info" style="display:inline-block; text-align: left; white-space: normal; line-height: 1.4; padding:0.5rem;">Waiting...</span>
+                </div>
+            </div>
+            <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                <button class="btn btn-primary" id="ts-restart-btn">Force Restart Current IP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live CLI Modal -->
+    <div class="modal hidden" id="live-modal">
+        <div class="modal-content glass-panel" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <h3>Live Console Output</h3>
+                <button class="close-btn" id="close-live-modal">&times;</button>
+            </div>
+            <pre class="terminal" id="live-output" style="height: 400px; overflow-y: auto; background: #000; color: #0f0; margin-top: 1rem; padding: 1rem; white-space: pre-wrap; font-size: 0.9rem;">Waiting for output...</pre>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main_automator.js') }}"></script>
+</body>
+</html>
